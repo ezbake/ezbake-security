@@ -1,0 +1,16 @@
+#!/bin/bash
+
+name=ezsecurity.pid
+local_dir=$( cd "$( dirname "$0" )" && pwd )
+pid_file="${local_dir}/${name}"
+
+pid=$(<"${pid_file}")
+echo "Killing ezsecurity pid: ${pid}"
+
+su ezsecurity -c "kill ${pid}"
+sleep 10
+if ps -p ${pid} > /dev/null; then
+  su ezsecurity -c "kill -9 ${pid}"
+fi
+
+su ezsecurity -c "rm -f ${pid_file}"

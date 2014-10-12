@@ -1,0 +1,10 @@
+{
+    "name": "ezsecurity_test",
+    "description": "ezsecurity test app",
+    "version": "0.0.1",
+    "private": true,
+    "dependencies": {
+        "express": "3.x",
+        "ezConfiguration":"git+ssh://git@github.com:ezbake/ezbake-configuration.git#2.0-nodejs_repo"
+    }
+}

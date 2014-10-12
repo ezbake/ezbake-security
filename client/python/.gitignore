@@ -1,0 +1,8 @@
+build/
+dist/
+lib/*.egg-info/
+
+.spyderproject
+
+*.pyc
+.python-version

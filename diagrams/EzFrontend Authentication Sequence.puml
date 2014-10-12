@@ -1,0 +1,35 @@
+@startuml
+'skinparam componentStyle uml2
+'hide footbox
+
+title EzBake HTTP Request Authentication
+
+actor User
+boundary EzFrontend
+participant EzSecurity
+
+User -> EzFrontend : HTTPS Request
+activate EzFrontend
+EzFrontend --> User : SSL Peer Authentication (PKI)
+User -> EzFrontend : Present PKI
+
+EzFrontend -> EzSecurity : Request Proxy Token (DN)
+activate EzSecurity
+participant IdAM
+EzSecurity -> IdAM : User Attributes Request (DN)
+activate IdAM
+IdAM --> EzSecurity : User Attributes
+deactivate IdAM
+EzSecurity --> EzFrontend : Proxy Token
+deactivate EzSecurity
+
+participant "Upstream App" as Upstream
+EzFrontend -> Upstream : HTTP Request (Proxy Token Header)
+activate Upstream
+ref over Upstream : Application Token Sequence
+Upstream --> User : HTTP Response
+
+deactivate Upstream
+deactivate EzFrontend
+
+@enduml

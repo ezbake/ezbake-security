@@ -1,0 +1,23 @@
+# Maven
+target/
+dependency-reduced-pom.xml
+
+# IntelliJ
+.idea/
+*.iml
+
+# Thrift
+gen-*/
+
+# Mac
+.DS_Store
+
+# Eclipse
+.classpath/*
+.project/*
+.settings/*
+bin/*
+
+# Temp files
+*#
+*~

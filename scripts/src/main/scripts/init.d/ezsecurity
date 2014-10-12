@@ -1,0 +1,91 @@
+#!/bin/bash
+### BEGIN INIT INFO
+# Provides:          EzSecurity
+# Required-Start:    networking
+# Required-Stop:     networking
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: This is EzSecurity
+# Description:       This is EzSecurity
+#                    This starts up the EzSecurity service
+### END INIT INFO
+
+# Source function library.
+. /etc/init.d/functions
+
+EZ_PREFIX="/opt/ezsecurity"
+PORT=30000
+APP_NAME=common_services
+
+if [ -f "${EZ_PREFIX}/bin/ezsecurity-env.sh" ]; then
+    . "${EZ_PREFIX}/bin/ezsecurity-env.sh"
+fi
+
+if [ -f "${EZ_PREFIX}/bin/ezsecurity-env-override.sh" ]; then
+    . "${EZ_PREFIX}/bin/ezsecurity-env-override.sh"
+fi
+
+servicename=EzSecurity
+RETVAL=0
+LOCKFILE=/var/lock/subsys/${servicename}
+PIDFILE="${EZ_PREFIX}/${servicename}.pid"
+
+JAVA_OPTS="-jar ${THRIFT_RUNNER_JAR} ${THRIFT_RUNNER_OPTS} ${ADDITIONAL_THRIFT_RUNNER_OPTS}"
+
+start() {
+	echo -n "Starting ${servicename}: "
+
+    daemon --user $EZ_USER --pidfile ${PIDFILE} "cd \"${EZ_PREFIX}\" && { ${STETHOSCOPE} & java ${JAVA_OPTS} ; } &>/dev/null & echo \$! > ${PIDFILE}"
+	RETVAL=$?
+	[ $RETVAL -eq 0 ] && touch $LOCKFILE
+
+	echo
+	return $RETVAL
+}
+
+stop() {
+    PID=$(<${PIDFILE})
+    echo -n "Shutting down ${servicename} (${PID}): "
+    pkill -TERM -P ${PID}
+	RETVAL=$?
+	rm -f $PIDFILE
+	rm -f $LOCKFILE
+	echo
+	return $RETVAL
+}
+
+case "$1" in
+    start)
+	start
+	;;
+    stop)
+	stop
+	;;
+    status)
+	echo -n "Status of ${servicename}: "
+	PID=`cat "$PIDFILE"`
+	if [ -f "$PIDFILE" -a -d "/proc/${PID}" ]; then
+		echo -n "running"
+		RETVAL=0
+	elif [ -f "$LOCKFILE" ]; then
+		echo -n "dead"
+		RETVAL=2
+	else
+		echo -n "dead"
+		RETVAL=3
+	fi
+	echo
+	;;
+    restart)
+    stop
+	start
+	;;
+    reload)
+	;;
+    *)
+	echo "Usage: ${servicename} {start|stop|status|reload|restart}"
+	exit 1
+	;;
+esac
+exit $RETVAL
+

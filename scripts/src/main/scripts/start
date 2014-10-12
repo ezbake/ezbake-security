@@ -1,0 +1,24 @@
+#!/bin/bash
+
+if [ "$1" == "--async" ];then
+    run_async="-a system_services -D tframe.transport=true"
+fi
+
+local_dir=$( cd "$( dirname "$0" )" && pwd )
+runner_jar="/opt/ezbake/thriftrunner/bin/thriftrunner.jar"
+service_jar="lib/ezsecurity.jar"
+service_class="ezbake.security.service.processor.EzSecurityRunner"
+ssl_dir="/opt/ezsecurity/etc/ezbake/pki/cert/config/ssl"
+service=EzbakeSecurityService
+async_opts=${run_async:-""}
+id=ezsecurity
+user=ezsecurity
+
+export EZCONFIGURATION_DIR=/etc/sysconfig/ezbake
+
+cd ${local_dir}/..
+su "${user}" -c "java -jar ${runner_jar} -j ${service_jar} -c ${service_class} -p 30000:34999 -s ${service} \
+	-D ezbake.security.app.id=${id} \
+	-D ezbake.security.ssl.dir=${ssl_dir} \
+	${async_opts} \
+	&>/dev/null & echo \$! > \"${local_dir}/ezsecurity.pid\""

@@ -1,0 +1,27 @@
+@startuml
+skinparam componentStyle uml2
+
+title Application Token Sequence
+
+participant EzSecurity
+participant "Admin Website" as App1
+participant EzDeployer as App2
+participant INS as App3
+
+-> App1 : Deployment Status HTTP Request (Proxy Token Header)
+App1 -> App1 : Verify Proxy Token Header
+App1 -> EzSecurity : Request Token (proxyToken, targetApp=EzDeployer)
+EzSecurity --> App1 : ezSecurityToken
+
+App1 -> App2 : View Deployment Status (ezSecurityToken)
+App2 -> App2 : Validate Received Token (ezSecurityToken)
+App2 -> EzSecurity : Request Chained Token (ezSecurityToken)
+EzSecurity --> App2 : ezSecurityToken'
+
+App2 -> App3 : List Pipelines (ezSecurityToken')
+App3 -> App3 : Validate ReceivedToken (ezSecurityToken')
+App3 --> App2 : Pipelines
+App2 --> App1 : Deployment Status
+<-- App1 : Deployment Status HTTP Response
+
+@enduml

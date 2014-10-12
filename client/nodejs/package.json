@@ -1,0 +1,25 @@
+{
+    "author" : "Gary Drocella",
+    "name" : "ezbakesecurityclient",
+    "private": true,
+    "description" : "Partial Implementation of Ezbake Security Client",
+    "version" : "2.0.0",
+    "repository" : {
+         "url": ""
+    },
+    "main" : "./lib",
+    "dependencies": {
+        "thrift": "0.9.1",
+        "q": "1.x",
+        "node-int64": "0.3.x",
+        "ezConfiguration":"git+ssh://git@github.com:ezbake/ezbake-configuration.git#2.0-nodejs_repo",
+        "thriftutils": "git+ssh://git@github.com:ezbake/thriftutils.git#2.0-nodejs_repo"
+    },
+    "devDependencies": {
+        "mocha": ">=1.0",
+        "should": ">=3.x"
+    },
+    "engines": {
+       "node" : "*"
+    }
+}

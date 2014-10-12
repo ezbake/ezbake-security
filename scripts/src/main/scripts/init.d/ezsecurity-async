@@ -1,0 +1,92 @@
+#!/bin/bash
+### BEGIN INIT INFO
+# Provides:          EzSecurity-Async
+# Required-Start:    networking
+# Required-Stop:     networking
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: This is EzSecurity with Asynchronous support
+# Description:       This is EzSecurity
+#                    This starts up the EzSecurity service
+### END INIT INFO
+
+# Source function library.
+. /etc/init.d/functions
+
+EZ_PREFIX="/opt/ezsecurity"
+PORT=30100
+APP_NAME=system_services
+
+if [ -f "${EZ_PREFIX}/bin/ezsecurity-env.sh" ]; then
+    . "${EZ_PREFIX}/bin/ezsecurity-env.sh"
+fi
+
+if [ -f "${EZ_PREFIX}/bin/ezsecurity-env-override.sh" ]; then
+    . "${EZ_PREFIX}/bin/ezsecurity-env-override.sh"
+fi
+
+servicename=EzSecurityAsync
+RETVAL=0
+LOCKFILE=/var/lock/subsys/${servicename}
+PIDFILE="${EZ_PREFIX}/${servicename}.pid"
+
+ASYNC_OPTS="-a system_services -D tframe.transport=true"
+JAVA_OPTS="-jar ${THRIFT_RUNNER_JAR} ${THRIFT_RUNNER_OPTS} ${ADDITIONAL_THRIFT_RUNNER_OPTS} ${ASYNC_OPTS}"
+
+start() {
+    echo -n "Starting ${servicename} (framed transports): "
+
+    daemon --user $EZ_USER --pidfile ${PIDFILE} "cd \"${EZ_PREFIX}\" && { ${STETHOSCOPE} & java ${JAVA_OPTS} ; } &>/dev/null & echo \$! > ${PIDFILE}"
+    RETVAL=$?
+    [ $RETVAL -eq 0 ] && touch $LOCKFILE
+
+    echo
+    return $RETVAL
+}
+
+stop() {
+    echo -n "Shutting down ${servicename} (framed transports): "
+    PID=$(<${PIDFILE})
+    PGID=`ps -ejHf | awk -v p=$PID '($2==p){print $4}'`
+    kill -TERM -${PGID}
+    RETVAL=$?
+    rm -f $PIDFILE
+    rm -f $LOCKFILE
+    echo
+    return $RETVAL
+}
+
+case "$1" in
+    start)
+	start
+	;;
+    stop)
+	stop
+	;;
+    status)
+    echo -n "Status of ${servicename} (framed transports): "
+    PID=`cat "$PIDFILE"`
+    if [ -f "$PIDFILE" -a -d "/proc/${PID}" ]; then
+        echo -n "running"
+        RETVAL=0
+    elif [ -f "$LOCKFILE" ]; then
+        echo -n "dead"
+        RETVAL=2
+    else
+        echo -n "dead"
+        RETVAL=3
+    fi
+    echo
+    ;;
+    restart)
+    stop
+	start
+	;;
+    *)
+	echo "Usage: ${servicename} {start|stop|status|restart}"
+	exit 1
+	;;
+esac
+exit $RETVAL
+
+
