@@ -20,6 +20,7 @@ import ezbake.base.thrift.ValidityCaveats;
 import ezbake.configuration.ClasspathConfigurationLoader;
 import ezbake.configuration.EzConfiguration;
 import ezbake.configuration.constants.EzBakePropertyConstants;
+import ezbake.security.client.EzBakeSecurityClientConfigurationHelper;
 import ezbake.security.client.EzbakeSecurityClient;
 import ezbake.security.impl.ua.FileUAService;
 import ezbake.security.service.processor.EzSecurityHandler;
@@ -60,8 +61,8 @@ public class EzSecurityMockITBase extends EzSecurityITBase {
         int zooPort = portChooser.nextInt((20499 - 20000) + 1) + 20000;
 
         properties = new EzConfiguration(new ClasspathConfigurationLoader()).getProperties();
-        properties.setProperty(EzbakeSecurityClient.USE_MOCK_KEY, String.valueOf(true));
-        properties.setProperty(EzbakeSecurityClient.MOCK_USER_KEY, DN);
+        properties.setProperty(EzBakeSecurityClientConfigurationHelper.USE_MOCK_KEY, String.valueOf(true));
+        properties.setProperty(EzBakeSecurityClientConfigurationHelper.MOCK_USER_KEY, DN);
         properties.setProperty(EzBakePropertyConstants.ZOOKEEPER_CONNECTION_STRING, "localhost:"+String.valueOf(zooPort));
 
         Properties serverConfig = new Properties();

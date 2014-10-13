@@ -20,6 +20,7 @@ import ezbake.common.properties.EzProperties;
 import ezbake.configuration.ClasspathConfigurationLoader;
 import ezbake.configuration.EzConfiguration;
 import ezbake.configuration.EzConfigurationLoaderException;
+import ezbake.security.client.EzBakeSecurityClientConfigurationHelper;
 import ezbake.security.client.EzbakeSecurityClient;
 import ezbake.security.common.core.EzSecurityTokenUtils;
 
@@ -48,13 +49,16 @@ public class EFEHeaderFilter implements Filter {
     private static final Logger logger = LoggerFactory.getLogger(EFEHeaderFilter.class);
     
     private EzProperties ezProperties;
+    private EzBakeSecurityClientConfigurationHelper configHelper;
     
     public EFEHeaderFilter() {
         try {
             ezProperties = new EzProperties(new EzConfiguration().getProperties(), true);
         } catch (EzConfigurationLoaderException e) {
             logger.error("Error: Got Exception {}", e);
+            ezProperties = new EzProperties();
         }
+        configHelper = new EzBakeSecurityClientConfigurationHelper(ezProperties);
     }
     
     @Override
@@ -64,18 +68,16 @@ public class EFEHeaderFilter implements Filter {
 
     @Override
     public void doFilter(final ServletRequest servletRequest, ServletResponse servletResponse, FilterChain filterChain) throws IOException, ServletException {
-        final HttpServletRequest httpRequest = (HttpServletRequest) servletRequest;
-        
-        boolean mocked= ezProperties.getBoolean(EzbakeSecurityClient.USE_MOCK_KEY, false);
-        
-        if(!mocked) {
+        if(!configHelper.useMock()) {
+            // only perform the filter in mock mode
             return;
         }
-        
+
+        final HttpServletRequest httpRequest = (HttpServletRequest) servletRequest;
         HttpServletRequestWrapper wrapper = new HttpServletRequestWrapper(httpRequest) {
             @Override
             public String getHeader(String name) {
-                String mockUser = ezProperties.getProperty(EzbakeSecurityClient.MOCK_USER_KEY, "CN=Mock User");
+                String mockUser = configHelper.getMockUser("CN=Mock User");
                 
                 ProxyUserToken token = new ProxyUserToken(
                         new X509Info(mockUser),

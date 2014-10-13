@@ -50,8 +50,8 @@ public class EzbakeMockSecurityClientTest {
     @BeforeClass
     public static void setUp() throws Exception {
         properties = new Properties();
-        properties.setProperty(EzbakeSecurityClient.USE_MOCK_KEY, String.valueOf(true));
-        properties.setProperty(EzbakeSecurityClient.MOCK_USER_KEY, DN);
+        properties.setProperty(EzBakeSecurityClientConfigurationHelper.USE_MOCK_KEY, String.valueOf(true));
+        properties.setProperty(EzBakeSecurityClientConfigurationHelper.MOCK_USER_KEY, DN);
         serverPrivateKey = FileUtils.readFileToString(new File(serverPrivatePath));
     }
 

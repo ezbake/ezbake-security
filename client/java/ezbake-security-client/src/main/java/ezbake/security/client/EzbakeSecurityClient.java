@@ -28,6 +28,8 @@ import ezbake.common.properties.EzProperties;
 import ezbake.crypto.PKeyCrypto;
 import ezbake.crypto.utils.EzSSL;
 import ezbake.security.client.provider.EzbakeTokenProvider;
+import ezbake.security.client.validation.EzSecurityTokenValidator;
+import ezbake.security.client.validation.TokenValidator;
 import ezbake.security.common.core.EzSecurityClient;
 import ezbake.security.common.core.EzSecurityTokenUtils;
 import ezbake.security.common.core.SecurityID;
@@ -67,9 +69,6 @@ public class EzbakeSecurityClient implements EzSecurityClient, Closeable {
     public static final String EFE_USER_HEADER = "ezb_verified_user_info";
     public static final String EFE_SIGNATURE_HEADER = "ezb_verified_signature";
     public static final String SESSION_TOKEN = "SESSION_TOKEN";
-    public static final String USE_MOCK_KEY = "ezbake.security.client.use.mock";
-    public static final String MOCK_USER_KEY = "ezbake.security.client.mock.user.dn";
-    public static final String MOCK_TARGET_ID_KEY = "ezbake.security.client.mock.target.id";
 
     private static long expiry = 10 * 60 * 1000; //millis
 
@@ -94,11 +93,15 @@ public class EzbakeSecurityClient implements EzSecurityClient, Closeable {
 
     private EzProperties properties;
     private final EzBakeApplicationConfigurationHelper applicationConfiguration;
+    private final EzBakeSecurityClientConfigurationHelper securityConfigurationHelper;
     private EzbakeTokenProvider tokenProvider;
+    private TokenValidator<EzSecurityToken> tokenValidator;
+
+
     public EzbakeSecurityClient(Properties properties) {
         this(properties, null);
     }
-    
+
     @Inject
     public EzbakeSecurityClient(final Properties properties, final ThriftClientPool clientPool) {
 
@@ -134,6 +137,8 @@ public class EzbakeSecurityClient implements EzSecurityClient, Closeable {
 
         this.properties = new EzProperties(properties, true);
         this.applicationConfiguration = new EzBakeApplicationConfigurationHelper(properties);
+        this.securityConfigurationHelper = new EzBakeSecurityClientConfigurationHelper(properties);
+        this.tokenValidator = new EzSecurityTokenValidator(properties);
 
         tokenProvider = Guice.createInjector(new EzbakeTokenProvider.Module(properties, pool, crypto))
                 .getInstance(EzbakeTokenProvider.class);
@@ -170,29 +175,7 @@ public class EzbakeSecurityClient implements EzSecurityClient, Closeable {
         return crypto.get();
     }
 
-    /**
-     * Gets the mock mode from EzConfiguration
-     * @return true if this client is in mock
-     */
-    private boolean useMock() {
-        return properties.getBoolean(USE_MOCK_KEY, false);
-    }
 
-    /**
-     * Get the mock user ID from the EzConfiguration
-     * @return the mock user ID
-     */
-    private String getMockUser() {
-        return properties.getProperty(MOCK_USER_KEY, "");
-    }
-
-    /**
-     * Get the mock target SecurityID from EzConfiguration
-     * @return the mock target SecurityID
-     */
-    private String getMockTarget() {
-        return properties.getProperty(MOCK_TARGET_ID_KEY, null);
-    }
 
     /**
      * Ping the security service
@@ -234,13 +217,8 @@ public class EzbakeSecurityClient implements EzSecurityClient, Closeable {
      * @throws EzSecurityTokenException if the token is invalid
      */
     public void validateReceivedToken(EzSecurityToken token) throws EzSecurityTokenException {
-        //if .use.mock key is set, return with no exception (for testing only)
-        if(useMock()) {
-            return;
-        }
-
         try {
-            EzSecurityTokenUtils.verifyReceivedToken(getCrypto(), token, applicationConfiguration.getSecurityID());
+            tokenValidator.validateToken(token);
         } catch(TokenExpiredException e) {
             EzSecurityToken newToken = tokenProvider.refreshSecurityToken(token);
 
@@ -261,7 +239,7 @@ public class EzbakeSecurityClient implements EzSecurityClient, Closeable {
     }
 
     public void verifyProxyUserToken(String token, String signature) throws EzSecurityTokenException {
-        if (useMock()) {
+        if (securityConfigurationHelper.useMock()) {
             return;
         }
         if (EzSecurityTokenUtils.verifyProxyUserToken(token, signature, getCrypto())) {
@@ -284,7 +262,7 @@ public class EzbakeSecurityClient implements EzSecurityClient, Closeable {
     }
 
     protected boolean verifyUserInfoResponse(final EzSecurityToken token) {
-        if (useMock()) {
+        if (securityConfigurationHelper.useMock()) {
             return true;
         }
 
@@ -312,8 +290,8 @@ public class EzbakeSecurityClient implements EzSecurityClient, Closeable {
     @Deprecated
     public EzSecurityPrincipal clientDnFromRequest(HttpServletRequest request) throws EzSecurityTokenException {
         // Return user from configuration if in 'mock' mode
-        if (useMock()) {
-            return new EzSecurityPrincipal(getMockUser(),
+        if (securityConfigurationHelper.useMock()) {
+            return new EzSecurityPrincipal(securityConfigurationHelper.getMockUser(),
                     new ValidityCaveats("EzSecurity", "", System.currentTimeMillis()+expiry, ""));
         }
 
@@ -361,8 +339,8 @@ public class EzbakeSecurityClient implements EzSecurityClient, Closeable {
     @Deprecated
     public EzSecurityPrincipal clientDnFromRequest() throws EzSecurityTokenException {
         // Return user from configuration if in 'mock' mode
-        if (useMock()) {
-            return new EzSecurityPrincipal(getMockUser(),
+        if (securityConfigurationHelper.useMock()) {
+            return new EzSecurityPrincipal(securityConfigurationHelper.getMockUser(),
                     new ValidityCaveats("EzSecurity", "", System.currentTimeMillis()+expiry, ""));
         }
 
@@ -392,8 +370,8 @@ public class EzbakeSecurityClient implements EzSecurityClient, Closeable {
      */
     public ProxyPrincipal requestPrincipalFromRequest() throws EzSecurityTokenException {
         // Return user from configuration if in 'mock' mode
-        if (useMock()) {
-            return new ProxyPrincipal(generateMockProxyToken(getMockUser()), "");
+        if (securityConfigurationHelper.useMock()) {
+            return new ProxyPrincipal(generateMockProxyToken(securityConfigurationHelper.getMockUser()), "");
         }
 
         ServletRequestAttributes reqAttributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
@@ -450,13 +428,13 @@ public class EzbakeSecurityClient implements EzSecurityClient, Closeable {
      * @throws EzSecurityTokenException
      */
     public ProxyPrincipal requestPrincipalFromRequest(Map<String, List<String>> headers) throws EzSecurityTokenException {
-        log.debug("Request Principal From Request\nIn Mock: {}", useMock());
+        log.debug("Request Principal From Request\nIn Mock: {}", securityConfigurationHelper.useMock());
  
         String dnHeader = getHeaderValue(headers, EFE_USER_HEADER);
         String dnSignature = getHeaderValue(headers, EFE_SIGNATURE_HEADER);
 
-        if (useMock() && (dnHeader == null || dnHeader.isEmpty())) {
-            return new ProxyPrincipal(generateMockProxyToken(getMockUser()), "");
+        if (securityConfigurationHelper.useMock() && (dnHeader == null || dnHeader.isEmpty())) {
+            return new ProxyPrincipal(generateMockProxyToken(securityConfigurationHelper.getMockUser()), "");
         }
         
         
@@ -770,7 +748,7 @@ public class EzbakeSecurityClient implements EzSecurityClient, Closeable {
      */
     protected String getTargetAppSecurityId(String targetApp) {
         String securityId;
-        if (!useMock()) {
+        if (!securityConfigurationHelper.useMock()) {
             securityId = targetApp;
             if (Strings.isNullOrEmpty(securityId)) {
                 securityId = applicationConfiguration.getSecurityID();
@@ -781,7 +759,7 @@ public class EzbakeSecurityClient implements EzSecurityClient, Closeable {
         } else {
             securityId = targetApp;
             if (Strings.isNullOrEmpty(securityId)) {
-                securityId = getMockTarget();
+                securityId = securityConfigurationHelper.getMockTarget();
             }
         }
         return securityId;
